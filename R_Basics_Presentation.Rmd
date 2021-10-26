@@ -1,0 +1,30 @@
+---
+title: "Introduction to R for Data Analysis"
+author: "James Cutler"
+date: "`r library(dplyr); Sys.Date() %>% format('%A, %d %B %Y')`"
+# output: 
+#   bookdown::pdf_document2:
+#     fontsize: 12pt
+#     number_sections: false
+#     # fig_caption: true
+#     toc: true
+#     fig_height: 3
+output:
+  rmdformats::readthedown:
+    use_bookdown: yes
+    number_sections: no
+    highlight: tango
+    lightbox: yes
+    gallery: yes
+    df_print: paged
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      warning = F,
+                      message = F,
+                      error = F)
+```
+
+# Intro to R
