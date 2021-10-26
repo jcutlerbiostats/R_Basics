@@ -7,7 +7,6 @@
 # c("AAPL","MSFT","NFLX") %>% 
 #   tq_get(from = "2015-01-01") %>% 
 #   select(symbol, date, adjusted) -> stock_tbl
-# 
 # stock_tbl
 
 stock_tbl_to_xts <- function(your_stock_tbl,stock_symbol){

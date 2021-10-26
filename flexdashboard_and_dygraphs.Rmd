@@ -1,0 +1,54 @@
+---
+title: "Untitled"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    social: menu
+    vertical_layout: scroll
+---
+
+```{r setup, include=FALSE}
+pacman::p_load(
+  tidyverse,
+  tidyquant,
+  flexdashboard,
+  dygraphs
+)
+```
+
+```{r}
+source("00_custom_functions.R")
+```
+
+
+```{r}
+c("AAPL","NFLX","GOOG") %>% 
+  tq_get(from = "2015-01-01") %>% 
+  select(symbol,date,adjusted) -> stock_tbl
+```
+
+
+### Apple
+
+```{r}
+stock_tbl_to_xts(stock_tbl,"AAPL") %>% dygraph() %>%
+  dySeries("adjusted", label = "Apple") %>%
+  dyRangeSelector()
+```
+
+### Netflix
+
+```{r}
+stock_tbl_to_xts(stock_tbl,"NFLX") %>% dygraph() %>%
+  dySeries("adjusted", label = "Netflix") %>%
+  dyRangeSelector()
+```
+
+### Google
+
+```{r}
+stock_tbl_to_xts(stock_tbl,"GOOG") %>% dygraph() %>%
+  dySeries("adjusted", label = "Google") %>%
+  dyRangeSelector()
+```
+
