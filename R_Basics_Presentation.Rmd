@@ -27,4 +27,201 @@ knitr::opts_chunk$set(echo = TRUE,
                       error = F)
 ```
 
-# Intro to R
+# First Rules
+
+1.  Don't use base `R` code if you can help it. Use `tidyverse` instead. I've done both---so take my word for it!
+
+2.  Don't use base `R`. Use RStudio!!! I will hunt you down if you ever open `R` instead of `RStudio`.
+
+3.  Don't get misled by the myths out there about SAS vs R (e.g., `R` stuff is "home-cooked" 😉😉)! Here's a couple links debunking some of those myths (while perpetuating at least one other myth---more on this later): [An old blogpost from 2014, part 1](https://thomaswdinsmore.com/2014/12/01/sas-versus-r-part-1/ "Mostly accurate material") and [Part 2 of the blogpost](https://thomaswdinsmore.com/2014/12/15/sas-versus-r-part-two/ "Mostly accurate material").
+
+    1.  At the end I'll provide more links to resources demonstrating the versatility, professional quality, and reliability of `R`.
+
+```{r}
+pacman::p_load(
+  tidyverse,
+  tidyquant,
+  tidymodels,
+  scales,
+  plotly,
+  gt,
+  gtsummary,
+  
+  survival,
+  survminer,
+  nlme,
+  lme4
+)
+```
+
+# Hands-on Basics
+
+Much of the material presented here, and a lot more, can be found---in a *very* helpful way---at [R for Data Science](https://r4ds.had.co.nz/ "R for Data Science, a free online book by Hadley Wickham"). This book is amazing! Ignore it at your own risk.
+
+You can use `R` as a calculator:
+
+```{r}
+3 + 5^3 - sin(4) / (pi*log10(100))
+```
+
+You can assign things to "objects". For this, use alt+-, i.e., alt+dash:
+
+```{r}
+X <- rnorm(100)
+Y <- X + rnorm(100)
+
+my_tibble <- tibble(
+  x = X,
+  y = Y
+)
+
+my_tibble
+```
+
+Note: If you want to generate, say, 100 random variates from the standard normal distribution, it's as easy as `rnorm(100)`. Lots of functionality for all the other common distributions are, naturally, available in `R`.
+
+Here is `X`:
+
+```{r}
+X
+```
+
+```{r}
+length(X)
+```
+
+And here is `Y`:
+
+```{r}
+Y
+```
+
+You can plot `x` and `y`:
+
+```{r}
+my_tibble %>% 
+  ggplot(aes(x,y)) + 
+  geom_point() + 
+  geom_smooth(method = "lm") + 
+  theme_tq() +
+  labs(
+    title = "This is a scatter plot with a linear OLS fitted regression line",
+    x = "X",
+    y = "Y"
+  )
+```
+
+You can write your own functions (and your own `R` libraries, if you want!):
+
+```{r}
+make_a_demo_data_tibble <- function(X){
+  
+  # Make y
+  Y <- X + rnorm(length(X))
+  
+  my_tibble <- tibble(
+    x = X,
+    y = Y
+  )
+}
+
+foo <- make_a_demo_data_tibble(X = rnorm(200))
+
+foo
+```
+
+There are easy ways of making vectors or regular sequences of numbers:
+
+```{r}
+seq(-4,4,length.out = 100) %>% as_tibble()
+```
+
+## The Pipe
+
+What's this `%>%` thing? It's called the "pipe" operator. The hot-key for it is shift+ctrl+m, or shift+command+m if you're on a mac. If your familiar with bash, it's kind of like the pipe in bash code. It takes the output of the code before the pipe, and "pipes" it into the code after the pipe as the first argument in whatever function is sitting there. For example, this is what your code might look like without the pipe:
+
+```{r}
+Z <- X - 2*rnorm(100)
+binary_variable <- rbinom(100,1,.5)
+
+mutate(my_tibble,z = Z)       -> my_tibble
+mutate(my_tibble,`x*z` = X*Z) -> my_tibble
+mutate(
+  my_tibble,
+  b_var = binary_variable
+)                             -> my_tibble
+
+my_tibble
+```
+
+Notice all the redundant calls of `my_tibble` and the `mutate` function. But thanks to the pipe (and some other nice `tidyverse` features), we don't ever have to code like this again!! Let's see what this would be like *with* the pipe:
+
+```{r}
+# Start over with a fresh my_tibble
+make_a_demo_data_tibble(rnorm(100)) -> my_tibble
+
+my_tibble
+```
+
+```{r}
+# Now use the pipe, and the fact that you can create multiple columns inside just one
+# mutate function.
+my_tibble %>% 
+  rowwise() %>% 
+  mutate(
+    z     = x - 2*rnorm(1),
+    `x*z` = x*z,
+    b_var = rbinom(1,1,.5)
+  )  %>% ungroup() -> my_tibble
+
+my_tibble
+```
+
+If by chance you don't see the intuitive nature of the pipe yet, find someone who can help you familiarize yourself with it through repeated practice, and very soon it will be as intuitive as putting one foot in front of the other!
+
+Also, if you're wondering what `rowwise` and `ungroup` are all about, don't sweat it! They're fairly self-explanatory. `rowwise` allows you to do data transformations or operations row-by-row. Since that "groups" the data set into single-row groupings, you simply `ungroup` after you're done using `rowwise`. You'll get more familiar with it after you try it out a few times.
+
+You may have noticed the `->` assignment arrow turned around in some of the code above. What's with this right-facing assignment arrow? Just another cool illustration of the flexibility of `R`. You can point the assignment arrow either way, just as long as it's facing the object name, not the "stuff" you're assigning to the object.
+
+There are a bajillion other things to mention about first things in R Basics before moving on to the next R Basics topic of data wrangling, but hopefully this gives you a glimpse of what `R` is like.
+
+# Data Wrangling
+
+It's been said, 80% of your quantitative analysis life is data wrangling. At least, it will be once you move outside of the classroom and into the real world.
+
+This is just one more really big reason why you should use `R`.
+
+## Overview of data types
+
+There are numerics, integers, character strings, factors, dates, date-times, and other data types. For example:
+
+```{r}
+1:10
+(1:10) %>% class()
+```
+
+```{r}
+# Random uniform variates
+runif(10)
+runif(10) %>% class()
+```
+
+```{r}
+letters[1:3]
+
+letters[1:3] %>% class()
+```
+
+```{r}
+letters[1:3] %>% factor()
+letters[1:3] %>% factor() %>% class()
+```
+
+```{r}
+timetk::tk_make_timeseries("2021-10-01","2021-10-10")
+timetk::tk_make_timeseries("2021-10-01","2021-10-10") %>% class()
+```
+
+As with most of the stuff presented here, you can learn more [here](https://r4ds.had.co.nz/ "R for Data Science"). But these data types are fairly self-explanatory.
+
+So let's dive in and wrangle some crappy data!
