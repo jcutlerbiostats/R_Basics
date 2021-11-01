@@ -39,6 +39,8 @@ knitr::opts_chunk$set(echo = TRUE,
 
 ```{r}
 pacman::p_load(
+  readxl,
+  sas7bdat,
   tidyverse,
   tidyquant,
   tidymodels,
@@ -47,11 +49,18 @@ pacman::p_load(
   gt,
   gtsummary,
   
+  usmap,
+  timetk,
+  
   survival,
   survminer,
   nlme,
-  lme4
+  # lme4 # Not used here. But great for mixed models!
 )
+```
+
+```{r}
+source("00_custom_functions.R")
 ```
 
 # Hands-on Basics
@@ -138,7 +147,7 @@ seq(-4,4,length.out = 100) %>% as_tibble()
 
 ## The Pipe
 
-What's this `%>%` thing? It's called the "pipe" operator. The hot-key for it is shift+ctrl+m, or shift+command+m if you're on a mac. If your familiar with bash, it's kind of like the pipe in bash code. It takes the output of the code before the pipe, and "pipes" it into the code after the pipe as the first argument in whatever function is sitting there. For example, this is what your code might look like without the pipe:
+What's this `%>%` thing? It's called the "pipe" operator. The hot-key for it is shift+ctrl+m, or shift+command+m if you're on a mac. If you're familiar with bash, it's kind of like the pipe in bash code. It takes the output of the code before the pipe, and "pipes" it into the code after the pipe as the first argument in whatever function is sitting there. For example, this is what your code might look like without the pipe:
 
 ```{r}
 Z <- X - 2*rnorm(100)
@@ -185,13 +194,13 @@ You may have noticed the `->` assignment arrow turned around in some of the code
 
 There are a bajillion other things to mention about first things in R Basics before moving on to the next R Basics topic of data wrangling, but hopefully this gives you a glimpse of what `R` is like.
 
-# Data Wrangling
+# Data Wrangling & Visualization
 
 It's been said, 80% of your quantitative analysis life is data wrangling. At least, it will be once you move outside of the classroom and into the real world.
 
 This is just one more really big reason why you should use `R`.
 
-## Overview of data types
+## Overview of Data Types
 
 There are numerics, integers, character strings, factors, dates, date-times, and other data types. For example:
 
@@ -225,3 +234,465 @@ timetk::tk_make_timeseries("2021-10-01","2021-10-10") %>% class()
 As with most of the stuff presented here, you can learn more [here](https://r4ds.had.co.nz/ "R for Data Science"). But these data types are fairly self-explanatory.
 
 So let's dive in and wrangle some crappy data!
+
+## BLS Employment Data
+
+We'll import data already placed in our project environment, but you can also find this on the web [here](https://www.bls.gov/oes/tables.htm "BLS Occupation and Employment Wage Statistics Data"), under May 2020; just click on XLS for "State" to download.
+
+Notice that we have the help of the `janitor` package to "clean up" the names. We can also `select` which columns we want, `slice` the data to look at only the rows we want, and even tell `R` which excel spreadsheet we want to import, as well as how many lines at the top of the spreadsheet to skip.
+
+```{r}
+oes_tbl <- readxl::read_excel("00_data/state_M2020_dl.xlsx",sheet = 1) %>% 
+  janitor::clean_names()
+
+oes_dict <- readxl::read_excel("00_data/state_M2020_dl.xlsx",sheet = 2,skip = 8) %>%
+  janitor::clean_names() %>% select(1:2) %>% slice(1:31)
+```
+
+Let's say we're interested in the percentile wage columns, for hourly wage. We can look at the columns that start with "h\_" using the `select` and `matches` tidyverse functions:
+
+```{r}
+oes_tbl %>% select(matches("h_"))
+```
+
+Notice that the data isn't quite the format we want! It's in the character "chr" format. No problem. We just use the `mutate` function to convert it to numeric (what the `tidyverse` calls "double", or "dbl"), along with the `across` and `matches` functions, to make sure we mutate *across* all the columns whose names match the pattern "h\_". We can also select those columns to view them more easily, just to make sure we did it right, before storing the updated tibble:
+
+```{r}
+oes_tbl %>% mutate(across(matches("h_"),as.numeric)) %>% select(matches("h_"))
+```
+
+Note that NAs were introduced! That's okay. We should expect that when not everything in those columns was a number. It gives us a warning when that happens though just to make sure we're aware it happened.
+
+(Don't get **warnings** and **errors** confused! Warnings are not errors. Warnings do *not* mean the code failed to execute. Warnings just let you know something particular occurred that you might want to know about.)
+
+Now that we can see our changes worked, let's store that output (along with a selection of only the columns we want) as a new object---called `oes_2_tbl`.
+
+```{r}
+oes_tbl %>% 
+  mutate(across(matches("h_"),as.numeric)) %>% 
+  select(area_title,prim_state,occ_title,matches("h_")) %>% 
+  rename(state_name = area_title) -> oes_2_tbl
+```
+
+Notice I also used `rename` to rename the column "area_title" to "state_name", just for the heck of showing you the `rename` function. We'll use another column-renaming function below.
+
+Just curious, do we have all 50 states represented in our data? One visual way to confirm that is by plotting them on a map!
+
+```{r}
+usmap::plot_usmap(include = oes_2_tbl %>% 
+                    distinct(prim_state) %>% 
+                    slice(1:45) %>% 
+                    pull(prim_state),
+                  fill = "gray70") 
+```
+
+Notice that I "sliced" my data to only rows 1 through 45. I did that on purpose to show you a map with some states missing. We actually *do* have all the states though, as this map below confirms:
+
+```{r}
+usmap::plot_usmap(include = oes_2_tbl %>% 
+                    distinct(prim_state) %>% 
+                    slice(1:51) %>% 
+                    pull(prim_state),
+                  fill = "gray70") 
+```
+
+You would probably want a more sure-fire way of checking something like completeness in a list of states. What would you do in order to get an exact list of only the states you're missing?
+
+(HINT: Try an anti-join using what you *know* to be a complete list of the states. Anti-joins are something we can cover later.)
+
+Now let's say I want to plot the wages at the various percentiles listed for a dozen or so different occupations. Some of the occupation names are extremely, ridiculously long. What's the *most efficient, most time-productive* way to do that?
+
+Hmmm ...
+
+One idea that occurred to me is to take advantage of `R`'s great auto-complete feature! (Not featured in SAS 😦). You can try this out yourself in the auxiliary script for this BLS data exercise---bls_data_practice.R. In summary, I would do something like this:
+
+```{r}
+oes_2_tbl %>% distinct(occ_title) %>% pull(occ_title) -> occupations
+
+matrix(
+  NA,
+  nrow = 1,
+  ncol = length(occupations)
+) %>% 
+  as.data.frame() %>% 
+  as_tibble() %>% 
+  set_names(occupations) -> occupations_tbl
+```
+
+Now I can simply type "occupations_tbl\$" and hit tab. All the occupation titles display in the auto-complete pop-up! I can simply start typing anything that pops into my head and see if it's there in this long list of 800+ different job titles!
+
+Now I've got my own list of jobs I'm interested in researching, using copy and paste (came in handy for the really long names!):
+
+```{r}
+selected_occupations <- c(
+  "Dentists, General",
+  "Physicians, All Other; and Ophthalmologists, Except Pediatric",
+  "Physician Assistants",
+  "Dental Hygienists",
+  "Nurse Practitioners",
+  "Management Occupations",
+  "Sales Managers",
+  "Chief Executives",
+  "Legislators",
+  "Epidemiologists",
+  "Statisticians",
+  "Software Developers and Software Quality Assurance Analysts and Testers"
+)
+```
+
+And now I'm ready to make a really cool interactive plot.
+
+```{r}
+oes_2_tbl %>% 
+  filter(prim_state %in% c("OK","NY","TX","CA","UT","MA")) %>% 
+  filter(occ_title %in% selected_occupations) %>% 
+  filter(!(str_detect(occ_title,"Legisl"))) %>% 
+  
+  # Pivot longer
+  pivot_longer(cols = h_mean:h_pct90) %>% 
+  
+  # Trim occupation title
+  mutate(occ_title = str_sub(occ_title,end = 15)) %>% 
+  
+  # Plot
+  ggplot(aes(name,value,color=occ_title,group=occ_title)) + 
+  facet_wrap(~state_name) + 
+  geom_point(size = 3) + 
+  geom_line(size = 1.3) + 
+  theme_tq() + scale_color_tq() + 
+  theme(axis.text.x = element_text(angle = 30,hjust=.9,vjust=.9)) + 
+  labs(title = "Hourly Wages by Occupation by State",
+       x = "Percentiles",y = "Dollars per Hour") -> g_wages
+
+ggplotly(g_wages)
+```
+
+At this point you might be asking "What the heck is all that code supposed to mean?" Let's break it down:
+
+1.  First I `filter`ed to just the states I was interested in. The `%in%` operator is similar to SAS's similarly-named operator.
+2.  Then I did another `filter` to select just the occupations in my `selected_occupations` character vector created in the previous code chunk.
+3.  I then highlighted and ran (using command+enter, or ctrl+enter on Windows) just the code I had written by the end of step 2, and noticed that there is no data at all for legislator! So in step 3 I removed the rows that detected a "Legisl" pattern (when I code sometimes I'm too lazy to type out the entire word).
+4.  Then I pivoted to a longer tibble, because `R` (specifically, `ggplot2`) can much more productively use long rather than wide data. Notice that if you type the name of one column, a colon, and then the name of a column somewhere to the *right* of that column (doesn't matter how far away), `R` will select all the columns in between them, and including them, so you can save yourself the hassle of typing!
+5.  Next I shortened the job titles to be 15 characters max.
+6.  Then I plotted the data.
+
+Here's the plot code breakdown:
+
+1.  Inside `ggplot`, you use the aesthetics function called `aes` to plug in your x and y variables. Since `pivot_longer` defaults to calling the newly created key column "name" and the column with the corresponding values "value", I just plugged in name for x, and value for y. Note: You can highlight and run the code only up to (and including) the pivot_longer line, and see for yourself what those columns look like! Try it in the auxiliary script! (i.e., bls_data_practice.R)
+2.  `facet_wrap` creates cool little facets---one for each state.
+3.  `geom_point` plots the data as points, and `geom_line` plots lines connecting the points that you tell `R` are supposed to be connected (note that I did this with the group argument inside the aesthetics).
+4.  `theme_tq` and `scale_color_tq` simply modify the theme and the colors of the plot to ones that I think look great.
+5.  All that stuff in the `theme` function just angles the x axis text, so as to make it legible.
+6.  `labs` adds your plot labels, of course.
+
+I used the right-facing assignment arrow to dump the output of all that code into an object I called "g_wages". I use the letter "g" for "ggplot" plot objects.
+
+Then I passed `g_wages` into the super awesome interactive plots function called `ggplotly` from the `plotly` library. And voila! Pretty cool. Try clicking on stuff once, and also twice, in the legend, and in the plot, to see what happens. You can look at any subset of jobs you like just by clicking on them! You can also hover over the plots to see exactly what the figures are for each job.
+
+## Next Steps
+
+There are so many other things that you can easily do, and easily learn to do, to wrangle all the crappy things you'll find in real world data. I can't even begin to tell you how much easier your life will be if you use the `tidyverse` to wrangle and visualize data. See Joey Hadley's Lynda Learning course on the `tidyverse` for more, or see if I or someone else here can help with a particular question. Don't be afraid to ask! I'm happy to help.
+
+# Biostatistics Core Methods
+
+This section very very briefly exhibits the tip of the iceberg of things you can do in the following biostats methods:
+
+-   multiple linear regression (biostats II)
+
+-   analysis of frequency data (e.g., logistic regression)
+
+-   survival analysis (e.g., Cox PH regression)
+
+-   longitudinal data analysis
+
+-   infectious disease methods (creating and plotting adjustable SEIR models with `R` `Shiny`)
+
+-   multivariate analysis (e.g., machine learning methods, using `tidymodels`)
+
+I know from personal experience that you can do everything taught in each of those courses, plus other courses, in `R`.
+
+There is a LOT more; this is just a brief intro.
+
+## Multiple Linear Regression
+
+The burning question on everyone's mind: Is highway miles per gallon associated with manufacturer, number of cylinders, type of drive train, and does it improve with time (comparing the year 1999 to 2008)?
+
+Call the `mpg` dataset (from the `tidyverse`).
+
+```{r}
+mpg
+```
+
+Pretty easy!
+
+See [this tidyverse help page](https://ggplot2.tidyverse.org/reference/mpg.html "Fuel economy dataset description") for information about the meaning of the variable names.
+
+Now store it as an object (not actually necessary).
+
+```{r}
+mpg_tbl <- mpg
+```
+
+With minimal data preparation, we will be ready to fit a multivariable linear model.
+
+Let's make Ford the reference group for the manufacturer variable (for no particular reason other than that it's a familiar manufacturer).
+
+```{r}
+mpg_tbl %>% 
+  mutate(
+    year = factor(year),
+    manufacturer = factor(manufacturer),
+    manufacturer = relevel(manufacturer,ref = "ford")
+  ) -> mpg_tbl
+```
+
+Now fit a linear model!
+
+We're just choosing a few of the variables available. We will not include interactions, for the sake of simplicity since this is just an intro to R.
+
+```{r}
+fit_lm <- lm(
+  hwy ~ drv + cyl + year + manufacturer,
+  data = mpg_tbl
+)
+```
+
+The syntax is nice. It's kind of like writing a formula, inside the `lm()` function.
+
+Now spit out a table for people to see the regression results.
+
+```{r}
+fit_lm %>% tbl_regression()
+```
+
+And spit out a dot-whisker plot for *MUCH* better visualization of the regression results.
+
+```{r}
+fit_lm %>% tidied_model_lm() %>% 
+  plot_dotwhisker(
+    my_title = "Highway Miles Per Gallon Adjusted Linear Relationships"
+  )
+```
+
+See why I tried to limit the number of variables in the model? Categorical variables are actually not just one variable!
+
+There is a great deal of flexibility and versatility with both the model prep, the model fitting, and the communication of results---this is just the tip of the iceberg! Just one example of what you can do.
+
+For example, when it comes to communicating or displaying model results, you can opt for no labels on the dot-whisker plot:
+
+```{r}
+fit_lm %>% tidied_model_lm() %>% 
+  plot_dotwhisker(
+    my_title = "Highway Miles Per Gallon Adjusted Linear Relationships",
+    labels = F
+  )
+```
+
+## Multiple Logistic Regression
+
+Are nodule presence and nature, as well as prostate specific antigen (PSA) concentration, associated with capsule penetration of a prostate tumor?
+
+A logistic regression model would be virtually the same, syntax-wise, except we use `glm()` instead of `lm()`.
+
+First, prepare the data to be properly analyzed. We'll want to make capsule (the variable for capsule penetration yes/no, i.e., 1/0) a factor with the reference group set to the 0 (no penetration).
+
+We'll leave nodule nature as a numeric (i.e., an ordinal variable, with possibilities 1, 2, 3, and 4, representing no nodule, unilobar left, unilobar right, and bilobar, respectively).
+
+```{r}
+prostate_tbl <- read_csv("00_data/Prostate_Frequency_Class.csv")
+
+prostate_tbl %>% 
+  mutate(
+    capsule = factor(capsule),
+    capsule = relevel(capsule,ref = "0")
+  ) -> prostate_tbl
+
+prostate_tbl
+```
+
+Now fit the model. The only new thing is that you specify a link function---in this case the logit link, which is the default when you set the `family` argument equal to binomial.
+
+```{r}
+fit_glm <- glm(
+  capsule ~ dpros + psa,
+  data = prostate_tbl,
+  family = binomial
+)
+```
+
+Now spit out the results.
+
+First the table of the results:
+
+```{r}
+fit_glm %>% tbl_regression(exponentiate = T)
+```
+
+Then a dot whisker figure:
+
+```{r}
+fit_glm %>% tidied_model_glm() %>% 
+  plot_dotwhisker(
+    my_title = "Adjusted Odds Ratios for the Model Covariates",
+    x_axis   = "Odds Ratios (and 95% CIs)",
+    x_intercept = 1
+  )
+```
+
+Cool beans.
+
+## Survival Analysis (Cox PH Regression)
+
+Question: Is overall survival for ovarian cancer patients associated with age, cancer stage (as a continuous variable), and cancer antigen 125?
+
+The `survival` package is great for this. Other supporting packages include, primarily, `survminer`, such as for plotting data using the function `ggsurvplot`.
+
+Load the data:
+
+```{r}
+ovarian_tbl <- readxl::read_excel("00_data/17. CA125 in Ovary Cancer.xlsx") %>% 
+  janitor::clean_names()
+
+ovarian_tbl
+```
+
+Prep the data:
+
+```{r}
+ovarian_tbl %>% 
+  mutate(
+    # Prep age_group
+    age_group = recode(age_group,
+                       `1` = "Up to 55 yo",
+                       `2` = "Over 55 yo"),
+    age_group = factor(age_group),
+    age_group = relevel(age_group,ref = "Up to 55 yo"),
+    
+    # Prep ca125_level
+    ca125_level = recode(ca125_level,
+                         `1` = "Normal",
+                         `2` = "High"),
+    ca125_level = factor(ca125_level),
+    ca125_level = relevel(ca125_level,ref = "Normal")
+  ) -> ovarian_tbl
+```
+
+Fit the model:
+
+```{r}
+fit_coxph <- coxph(
+  Surv(os,status) ~ age_group + ca125_level + stage,
+  data = ovarian_tbl
+)
+```
+
+Share the results:
+
+```{r}
+fit_coxph %>% tbl_regression(exponentiate = T)
+```
+
+```{r}
+fit_coxph %>% tidied_model_glm() %>% 
+  plot_dotwhisker(
+    my_title = "Adjusted Hazard Ratios for the Model Covariates",
+    x_axis = "Hazard Ratios (and 95% CIs)",
+    x_intercept = 1
+  )
+```
+
+## Longitudinal Data Analysis
+
+Question: Is it lots of fun to fit a one-knot spline model, or just a little bit fun?
+
+Load some longitudinal data about smoking and FEV, courtesy of our *Applied Longitudinal Analysis* textbook.
+
+```{r}
+smoking_tbl <- sas7bdat::read.sas7bdat("00_data/smoking.sas7bdat") %>% 
+    as_tibble() %>% 
+    janitor::clean_names()
+```
+
+Some response profile analysis data transformation (don't worry about this, hopefully with some time spent trying it out step by step on your own, it will make sense!):
+
+```{r}
+smoking_tbl %>% 
+    pivot_wider(names_from = time,values_from = fev1) %>% 
+    mutate(baseline = `0`) %>% 
+    pivot_longer(cols = `0`:`12`) %>% 
+    rename(time = name,fev1 = value) %>% 
+    mutate(
+        change    = fev1 - baseline,
+        time_rank = recode(time,
+                           `0` = 1,
+                           `3` = 2,
+                           `6` = 3,
+                           `9` = 4,
+                           `12`= 5,
+                           `15`= 6,
+                           `19`= 7),
+        time.f = factor(time,c(0,3,6,9,12,15,19)),
+        time   = as.numeric(time),
+        smoker = factor(smoker,c(0,1)), # The levels of smoker are 0 and 1
+        id     = factor(id)
+    ) %>% 
+    arrange(id,time_rank) -> smoking_new_tbl
+```
+
+The knot:
+
+```{r}
+smoking_new_tbl %>% 
+    rowwise() %>% 
+    mutate(
+        # The knot:
+        years_post_6 = (time - 6)*I(time >= 6) %>% as.numeric()
+    ) %>% 
+    ungroup() -> smoking_new_tbl
+```
+
+The model:
+
+```{r}
+fit_F1_true <- gls(
+  
+    # The model formula
+    fev1 ~  time + years_post_6 + smoker + smoker:time + smoker:years_post_6,
+    
+    corr    = corSymm(form = ~time_rank|id),    # Unstructured within-subject correlation 
+    weights = varIdent(form = ~1|time_rank),    # Homogeneous variance across time
+    data    = smoking_new_tbl %>% drop_na(fev1) # Drop FEV NAs or your results will be wrong
+)
+```
+
+By the way, you can write $\LaTeX$ directly in RMarkdown! Just enclose in single dollar signs for in-line LaTeX, and double dollar signs (not visible here, but you will see them in the .Rmd file) for LaTeX "chunks":
+
+$$
+Y_{ij} = \beta_1 + \beta_2Time_{ij} + \beta_3(Time_{ij} - 6)_+ + \beta_4Group_i + \beta_5Time_{ij}*Group_i + \beta_6(Time_{ij} - 6)_+*Group_i + e_{ij}
+$$ Here's the one-knot spline model with estimates coefficients:
+
+$$
+\hat{Y}_{ij} = 3.55 - 0.043Time_{ij} + 0.013(Time_{ij} - 6)_+ - 0.33Group_i + 0.014Time_{ij}*Group_i - 0.025(Time_{ij} - 6)_+*Group_i
+$$
+
+Pretty cool 😎.
+
+## Infectious Disease Methods
+
+To check out my HIV model (and a generic SEIR) model, visit my Shiny app [here](https://jcutler79.shinyapps.io/infectious_disease_model/ "Shiny is pretty darn cool.").
+
+`Shiny` is the the way to easily make web apps just by writing `R` code! It opens up a whole new world for communicating your results to stakeholders. It allows them to interact with machine learning-based predictive models you would like to deploy, for example.
+
+## Multivariate Analysis - Machine Learning
+
+I can't begin to tell you how fun and exciting machine learning is in `R` with `tidymodels`. So I won't try. Instead, I'll simply refer you to Julia Silge's AMAZING YouTube channel on `tidymodels` and machine learning, linked [here](https://www.youtube.com/c/JuliaSilge/videos "Julia Silge YouTube channel").
+
+For now, suffice it to say that if you are not doing machine learning using `tidymodels`, you are *NOT* doing machine learning the right way unless you're living ten years ago!
+
+Machine learning is a BIG topic, with lots of methods, and lots of great tools in the `tidymodels` ecosystem.
+
+If you want to learn more feel free to reach out to me I'd be happy to help with what I can.
+
+FYI, you can do everything in the BSE multivariate analysis course in R, including the stuff that we did in SAS. And everything you learned to do in that course in R, you can do more easily, painlessly and richly if you use `tidyverse` and `tidymodels` instead of base R.
+
+# Miscellaneous Cool Stuff - Maps

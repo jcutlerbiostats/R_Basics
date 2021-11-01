@@ -62,4 +62,121 @@ my_jitter_coords <- function(coords_tbl,sd=.01){
 }
 
 
+horizontal_lollipop <- function(your_tibble,x_var,y_var,my_color="skyblue"){
+  your_tibble %>% 
+    ggplot(aes({{x_var}},{{y_var}})) + 
+    
+    geom_segment(
+      aes(x = 0        ,xend = {{x_var}},
+          y = {{y_var}},yend = {{y_var}}),
+      color = my_color
+    ) + 
+    geom_point(color = my_color) + 
+    hrbrthemes::theme_ipsum(grid = "X")
+}
+
+
+tidied_model_glm <- function(model_fit){
+  model_fit %>% 
+    tidy(exponentiate = T,conf.int = T) %>% 
+    mutate(p.value = pvalue(p.value)) %>% 
+    filter(!grepl("Intercept",term)) %>% 
+    select(-c(std.error,statistic)) %>% 
+    mutate(
+      term = factor(term) %>% fct_reorder(estimate) %>% fct_rev()
+    )
+}
+
+
+tidied_model_lm <- function(model_fit){
+  model_fit %>% 
+    tidy(conf.int = T) %>% 
+    mutate(p.value = pvalue(p.value)) %>% 
+    filter(!grepl("Intercept",term)) %>% 
+    select(-c(std.error,statistic)) %>% 
+    mutate(
+      term = factor(term) %>% fct_reorder(estimate) %>% fct_rev()
+    )
+}
+
+
+my_bold_plus <- function(your_gt,fmt_number=T,decimals = 2){
+  if(isTRUE(fmt_number)){
+    your_gt %>% 
+      tab_style(
+        style = cell_text(weight = "bold"),
+        locations = cells_column_labels()
+      ) %>% 
+      fmt_number(
+        columns = where(is.numeric),
+        decimals = decimals
+      )
+  } else{
+    your_gt %>% 
+      tab_style(
+        style = cell_text(weight = "bold"),
+        locations = cells_column_labels()
+      )
+  }
+}
+
+
+plot_dotwhisker <- function(
+  tidied_model,
+  round_estimate = 3,
+  my_title,
+  x_axis = "Estimate of Linear Association (and 95% CI)",
+  x_intercept = 0,
+  n_breaks = 10,
+  labels = T
+){
+  if(labels){
+    tidied_model %>% 
+      ggplot(aes(estimate,term)) +
+      geom_vline(xintercept = x_intercept,
+                 lty   = 2,
+                 color = "gray80",
+                 size  = 1.3) +
+      
+      geom_point() +
+      geom_segment(aes(
+        x = conf.low, xend = conf.high,
+        y = term    , yend = term
+      )) +
+      ggrepel::geom_label_repel(aes(
+        x = estimate,
+        label = str_c(
+          round(estimate,round_estimate)," (",round(conf.low,round_estimate),", ",round(conf.high,round_estimate),")",
+          sep = ""
+        )
+      ),
+      size = 2) + 
+      
+      theme_test() +
+      scale_x_continuous(breaks = pretty_breaks(n=n_breaks)) +
+      labs(title = str_glue("{my_title}"),
+           x = str_glue("{x_axis}"), y = "")
+  } else{
+    tidied_model %>% 
+      ggplot(aes(estimate,term)) +
+      geom_vline(xintercept = x_intercept,
+                 lty   = 2,
+                 color = "gray80",
+                 size  = 1.3) +
+      
+      geom_point() +
+      geom_segment(aes(
+        x = conf.low, xend = conf.high,
+        y = term    , yend = term
+      )) +
+      
+      theme_test() +
+      scale_x_continuous(breaks = pretty_breaks(n=n_breaks)) +
+      labs(title = str_glue("{my_title}"),
+           x = str_glue("{x_axis}"), y = "")
+  }
+}
+
+
+
 
