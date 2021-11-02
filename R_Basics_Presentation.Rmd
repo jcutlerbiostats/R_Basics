@@ -745,7 +745,36 @@ FYI, you can do everything in the BSE multivariate analysis course in R, includi
 
 (Just so you know!)
 
-# Miscellaneous Things You Can Do 
+## Descriptive Statistics
+
+I almost forgot about making tables of descriptive statistics. Here is an illustration of what the process is like in `R`. One great advantage over SAS is that no monstrous macros code is required for a simple cross-table.
+
+Read in the data:
+
+```{r}
+ok_co_tbl <- read_rds("00_data/OK_CO_BRFSS.rds")
+```
+
+Make a cross-table:
+
+```{r}
+# Isn't it a relief that this is all it takes to make a cross-table!?
+ok_co_tbl %>% 
+  tbl_summary(
+    by = "state",
+    percent = "column",
+    missing_text = "(Missing)"
+  ) %>% 
+  add_p() %>% 
+  bold_labels() %>% 
+  add_overall() %>% 
+  modify_spanning_header(c("stat_1","stat_2") ~ "**Home State of Respondent**") %>% 
+  modify_caption(
+    caption = "**A cross-table of the demographic/health variables stratified by state**"
+  )
+```
+
+# Miscellaneous Things You Can Do
 
 ## Maps
 
