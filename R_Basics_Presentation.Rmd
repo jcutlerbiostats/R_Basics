@@ -51,6 +51,7 @@ pacman::p_load(
   
   usmap,
   timetk,
+  leaflet,
   
   survival,
   survminer,
@@ -342,7 +343,7 @@ selected_occupations <- c(
 
 And now I'm ready to make a really cool interactive plot.
 
-```{r}
+```{r fig.height=8}
 oes_2_tbl %>% 
   filter(prim_state %in% c("OK","NY","TX","CA","UT","MA")) %>% 
   filter(occ_title %in% selected_occupations) %>% 
@@ -362,7 +363,7 @@ oes_2_tbl %>%
   theme_tq() + scale_color_tq() + 
   theme(axis.text.x = element_text(angle = 30,hjust=.9,vjust=.9)) + 
   labs(title = "Hourly Wages by Occupation by State",
-       x = "Percentiles",y = "Dollars per Hour") -> g_wages
+       x = "",y = "Dollars per Hour") -> g_wages
 
 ggplotly(g_wages)
 ```
@@ -695,4 +696,55 @@ If you want to learn more feel free to reach out to me I'd be happy to help with
 
 FYI, you can do everything in the BSE multivariate analysis course in R, including the stuff that we did in SAS. And everything you learned to do in that course in R, you can do more easily, painlessly and richly if you use `tidyverse` and `tidymodels` instead of base R.
 
-# Miscellaneous Cool Stuff - Maps
+# Miscellaneous Cool Stuff 
+
+## Maps
+
+You can make interactive maps in `R` with `leaflet` (like JavaScript's Leaflet maps).
+
+In this map below, we have a list of Oklahoma County high schools scraped from Wikipedia. They have been geocoded in `R`.
+
+```{r}
+school_coords_tbl <- read_rds("00_data/OK_county_high_schools_coords.rds")
+
+school_coords_tbl %>% my_jitter_coords(sd=.001) -> school_jitter_tbl
+```
+
+```{r}
+school_jitter_tbl %>% 
+  leaflet() %>% 
+  addProviderTiles("CartoDB.Voyager") %>% 
+  setView(lng = -97.5,lat = 35.5, zoom = 10) %>% 
+  addCircleMarkers(
+    label = ~labels,
+    lat = ~lat,
+    lng = ~lng,
+    radius = 7
+  )
+```
+
+The code behind all that went into this (not too much code!) is in maps_and_web_scraping.R, also in this GitHub repo.
+
+## Dashboards
+
+See flexdashboard_and_dygraphs.Rmd (and the corresponding html file).
+
+# Miscellaneous
+
+There are SO many things we did not cover here, obviously. `R` is like a never-ending playground; only your research interests are the limit.
+
+Here are a few random sources for more cool things to explore:
+
+-   A gallery of extensions to `ggplot2` for all kinds of data visualization, [here](https://exts.ggplot2.tidyverse.org/gallery/ "A MUST-see!"). THIS GALLERY IS A MUST-SEE.
+
+-   A `flexdashboard` gallery [here](https://rstudio.github.io/flexdashboard/articles/examples.html "EASY DASHBOARDS!"). ALSO A MUST-SEE.
+
+-   Don't miss ... [The Big Book of R](https://www.bigbookofr.com/ "The Big Book of R"). It has every single online book about doing cool stuff in `R`!!
+
+-   Joey Hadley's intro to the `tidyverse` on Lynda Learning.
+
+-   Side-by-side sample SAS code and R code for pretty much all the longitudinal data analysis exercises, provided by the authors of our BSE course's textbook, [here](https://content.sph.harvard.edu/fitzmaur/ala2e/ "Applied Longitudinal Analysis").
+
+-   And don't forget to check out stackoverflow.com where you will find answers to literally 90% of your questions about how to do anything `R` (as well as most other languages).
+
+-   Lastly, check out my thesis! That way for sure more than two people will have read it. It was all completely 100% done and written and knit to PDF in `R`. See [here](https://www.proquest.com/docview/2446414689?pq-origsite=gscholar&fromopenview=true "James Cutler Master's Thesis").
