@@ -27,15 +27,41 @@ knitr::opts_chunk$set(echo = TRUE,
                       error = F)
 ```
 
-# First Rules
+# Some Guidelines
 
 1.  Don't use base `R` code if you can help it. Use `tidyverse` instead. I've done both---so take my word for it!
 
 2.  Don't use base `R`. Use RStudio!!! I will hunt you down if you ever open `R` instead of `RStudio`.
 
-3.  Don't get misled by the myths out there about SAS vs R (e.g., `R` stuff is "home-cooked" 😉😉)! Here's a couple links debunking some of those myths (while perpetuating at least one other myth---more on this later): [An old blogpost from 2014, part 1](https://thomaswdinsmore.com/2014/12/01/sas-versus-r-part-1/ "Mostly accurate material") and [Part 2 of the blogpost](https://thomaswdinsmore.com/2014/12/15/sas-versus-r-part-two/ "Mostly accurate material").
+3.  **Get familiar with the hot-keys** (keyboard short cuts), and **USE AUTOCOMPLETE**.
+
+    1.  Assignment `<-` is alt+- (i.e. alt+"dash"). DO NOT TYPE THIS OUT MANUALLY UNLESS YOU HATE YOURSELF.
+
+    2.  The pipe `%>%` (see below) is shift+ctrl+m on windows or shift+command+m on a mac. Do not type this out manually.
+
+    3.  Comment out as much code at a time as you want by highlighting it and hitting shift+ctrl+c on windows or shift+command+c on mac.
+
+    4.  Run code by hitting ctrl+enter on windows or command+enter on mac. You don't have to highlight the code! I only highlight when I'm running lots of code at once.
+
+    5.  In RMarkdown, alt+ctrl+i on windowns or alt+command+i on mac adds an `R` code chunk for you.
+
+    6.  In RStudio, you can place the cursor in the console with ctrl+2 (windows and mac) and you can place it back in the editor with ctrl+1.
+
+    7.  In RStudio, you can open up a new script (a new tab) in the editor pane with shift+ctrl+n on windows and shift+command+n on mac.
+
+    8.  In RStudio, move between tabs (scripts) with ctrl+alt and a left or right arrow (ctrl+option on a mac).
+
+4.  Don't get misled by the myths out there about SAS vs R (e.g., `R` stuff is "home-cooked" 😉😉)! Here's a couple links debunking some of those myths (while perpetuating at least one other myth---more on this later): [An old blogpost from 2014, part 1](https://thomaswdinsmore.com/2014/12/01/sas-versus-r-part-1/ "Mostly accurate material") and [Part 2 of the blogpost](https://thomaswdinsmore.com/2014/12/15/sas-versus-r-part-two/ "Mostly accurate material").
 
     1.  At the end I'll provide more links to resources demonstrating the versatility, professional quality, and reliability of `R`.
+
+5.  Write your code legibly. Try to hit enter, and align things vertically, as often as is reasonable. Don't write lines of code that run off the page to the right if you can help it.
+
+6.  Annotate your code! Use the four dashes, the document outline, and multiple hashtags for indentation.
+
+7.  What should you do if you get an error? Copy the error message, or part of the error message you think is most important, and paste it into a google search. I've done this hundreds of times! It usually gets answers in seconds.
+
+Before we get started on any data analysis in `R`, we load the libraries we are going to need. 80% of everything I do I can do with the `tidyverse` and base `R` libraries. But beyond those two, I would say I use about a dozen or so others on a somewhat regular basis. I've probably only ever used little more than a few dozen or so libraries in my life. So while there are literally thousands of `R` libraries, you won't need to get familiar with more than a relative few!
 
 ```{r}
 pacman::p_load(
@@ -60,11 +86,13 @@ pacman::p_load(
 )
 ```
 
+I like to use custom functions (functions I write myself) in order to save myself time and hassle. Open the 00_custom_functions.R script to see what they are! Writing functions in `R` will be briefly introduced below.
+
 ```{r}
 source("00_custom_functions.R")
 ```
 
-# Hands-on Basics
+# The Basics
 
 Much of the material presented here, and a lot more, can be found---in a *very* helpful way---at [R for Data Science](https://r4ds.had.co.nz/ "R for Data Science, a free online book by Hadley Wickham"). This book is amazing! Ignore it at your own risk.
 
@@ -88,7 +116,7 @@ my_tibble <- tibble(
 my_tibble
 ```
 
-Note: If you want to generate, say, 100 random variates from the standard normal distribution, it's as easy as `rnorm(100)`. Lots of functionality for all the other common distributions are, naturally, available in `R`.
+If you want to generate, say, 100 random variates from the standard normal distribution, it's as easy as `rnorm(100)`. Lots of functionality for all the other common distributions are, of course, available in `R`.
 
 Here is `X`:
 
@@ -143,12 +171,24 @@ foo
 There are easy ways of making vectors or regular sequences of numbers:
 
 ```{r}
-seq(-4,4,length.out = 100) %>% as_tibble()
+seq(-4,4,length.out = 100) -> a_sequence
+
+a_sequence %>% as_tibble()
+```
+
+Do you recognize this formula?
+
+```{r}
+y <- ( 1/sqrt(2*pi) ) * exp(-.5*a_sequence^2) 
+
+plot(a_sequence,y)
 ```
 
 ## The Pipe
 
-What's this `%>%` thing? It's called the "pipe" operator. The hot-key for it is shift+ctrl+m, or shift+command+m if you're on a mac. If you're familiar with bash, it's kind of like the pipe in bash code. It takes the output of the code before the pipe, and "pipes" it into the code after the pipe as the first argument in whatever function is sitting there. For example, this is what your code might look like without the pipe:
+What's this `%>%` thing? It's called the "pipe" operator. The hot-key for it is shift+ctrl+m on windows, or shift+command+m if you're on a mac. If you're familiar with bash, it's kind of like the pipe in bash code. It takes the output of the code before the pipe, and "pipes" it into the code after the pipe as the first argument in whatever function is sitting there. Not using the pipe means writing more redundant and disjointed code that doesn't flow nearly well enough to make you really productive with your time.
+
+For example, this is what your code might look like without the pipe:
 
 ```{r}
 Z <- X - 2*rnorm(100)
@@ -174,8 +214,7 @@ my_tibble
 ```
 
 ```{r}
-# Now use the pipe, and the fact that you can create multiple columns inside just one
-# mutate function.
+# Now use the pipe, and the fact that you can create multiple new variables/columns inside just one mutate function.
 my_tibble %>% 
   rowwise() %>% 
   mutate(
@@ -187,19 +226,21 @@ my_tibble %>%
 my_tibble
 ```
 
-If by chance you don't see the intuitive nature of the pipe yet, find someone who can help you familiarize yourself with it through repeated practice, and very soon it will be as intuitive as putting one foot in front of the other!
+That wasn't necessarily the best example of how the pipe will save you hours of time and megajoules of brain energy, but in order to demostrate a really good example, it would require a much more complex data wrangling situation. For those who are interested, I'd be happy to show many more use cases.
 
-Also, if you're wondering what `rowwise` and `ungroup` are all about, don't sweat it! They're fairly self-explanatory. `rowwise` allows you to do data transformations or operations row-by-row. Since that "groups" the data set into single-row groupings, you simply `ungroup` after you're done using `rowwise`. You'll get more familiar with it after you try it out a few times.
+If by chance you don't see the intuitive nature of the pipe yet, find someone who can help you familiarize yourself with it through repeated practice, and very soon it will be as intuitive as putting one foot in front of the other! I'm happy to help anytime!
 
-You may have noticed the `->` assignment arrow turned around in some of the code above. What's with this right-facing assignment arrow? Just another cool illustration of the flexibility of `R`. You can point the assignment arrow either way, just as long as it's facing the object name, not the "stuff" you're assigning to the object.
+Also, if you're wondering what `rowwise` and `ungroup` are all about, don't sweat it. They're fairly self-explanatory. `rowwise` allows you to do data transformations or operations row-by-row. Since `rowwise` "groups" the data set into single-row groupings, you simply `ungroup` after you're done using `rowwise`. You'll get more familiar with it after you try it out a few times.
 
-There are a bajillion other things to mention about first things in R Basics before moving on to the next R Basics topic of data wrangling, but hopefully this gives you a glimpse of what `R` is like.
+You may have noticed the `->` assignment arrow turned around in some of the code above. What's with this right-facing assignment arrow? Don't worry, it's just another cool illustration of the flexibility of `R`. You can point the assignment arrow either way, just as long as it's facing the object name, not the "stuff" you're assigning to the object.
+
+There are a bajillion other things to mention about first things in R Basics before moving on to the next R Basics topic of data wrangling, but hopefully this gives you a glimpse of what basic syntax and objects in `R` are like.
 
 # Data Wrangling & Visualization
 
 It's been said, 80% of your quantitative analysis life is data wrangling. At least, it will be once you move outside of the classroom and into the real world.
 
-This is just one more really big reason why you should use `R`.
+This is just one more really big reason why you should use `R`, and the `tidyverse`.
 
 ## Overview of Data Types
 
@@ -238,9 +279,11 @@ So let's dive in and wrangle some crappy data!
 
 ## BLS Employment Data
 
-We'll import data already placed in our project environment, but you can also find this on the web [here](https://www.bls.gov/oes/tables.htm "BLS Occupation and Employment Wage Statistics Data"), under May 2020; just click on XLS for "State" to download.
+We'll import data already placed in our project environment, but you can also find this on the BLS website [here](https://www.bls.gov/oes/tables.htm "BLS Occupation and Employment Wage Statistics Data"), under May 2020; just click on XLS for "State" to download.
 
-Notice that we have the help of the `janitor` package to "clean up" the names. We can also `select` which columns we want, `slice` the data to look at only the rows we want, and even tell `R` which excel spreadsheet we want to import, as well as how many lines at the top of the spreadsheet to skip.
+This is occupation wage data for the United States made available by the Bureau of Labor Statistics.
+
+Notice that we have the help of the `janitor` package to "clean up" the names. We can also `select` which columns we want, `slice` the data to look at only the rows we want, and even tell `R` which excel sheet we want to import, as well as how many lines at the top of the spreadsheet to skip.
 
 ```{r}
 oes_tbl <- readxl::read_excel("00_data/state_M2020_dl.xlsx",sheet = 1) %>% 
@@ -299,7 +342,7 @@ usmap::plot_usmap(include = oes_2_tbl %>%
 
 You would probably want a more sure-fire way of checking something like completeness in a list of states. What would you do in order to get an exact list of only the states you're missing?
 
-(HINT: Try an anti-join using what you *know* to be a complete list of the states. Anti-joins are something we can cover later.)
+(HINT: Try an anti-join using what you *know* to be a complete list of the states. An anti-join is something you can might want to look into later if you're not familiar with it yet.)
 
 Now let's say I want to plot the wages at the various percentiles listed for a dozen or so different occupations. Some of the occupation names are extremely, ridiculously long. What's the *most efficient, most time-productive* way to do that?
 
@@ -322,7 +365,9 @@ matrix(
 
 Now I can simply type "occupations_tbl\$" and hit tab. All the occupation titles display in the auto-complete pop-up! I can simply start typing anything that pops into my head and see if it's there in this long list of 800+ different job titles!
 
-Now I've got my own list of jobs I'm interested in researching, using copy and paste (came in handy for the really long names!):
+You might be wondering what all that code means. I created an empty matrix with the specified dimensions (enough columns to match the number of occupation titles), and then converted that matrix to a tibble and set the column names to the occupation titles.
+
+Now I've got my own list of jobs I'm interested in researching, by using copy and paste (came in handy for the really long names!):
 
 ```{r}
 selected_occupations <- c(
@@ -392,7 +437,7 @@ Then I passed `g_wages` into the super awesome interactive plots function called
 
 ## Next Steps
 
-There are so many other things that you can easily do, and easily learn to do, to wrangle all the crappy things you'll find in real world data. I can't even begin to tell you how much easier your life will be if you use the `tidyverse` to wrangle and visualize data. See Joey Hadley's Lynda Learning course on the `tidyverse` for more, or see if I or someone else here can help with a particular question. Don't be afraid to ask! I'm happy to help.
+There are so many other things that you can easily do, and easily learn to do, to wrangle all the crappy datasets you'll be handed in your career. I can't even begin to tell you how much easier your life will be if you use the `tidyverse` to wrangle and visualize data. See Martin Hadley's Lynda Learning course on the `tidyverse` for more, or see if I or someone else here can help with a particular question. Don't be afraid to ask! I'm happy to help.
 
 # Biostatistics Core Methods
 
@@ -410,9 +455,11 @@ This section very very briefly exhibits the tip of the iceberg of things you can
 
 -   multivariate analysis (e.g., machine learning methods, using `tidymodels`)
 
-I know from personal experience that you can do everything taught in each of those courses, plus other courses, in `R`.
+I know from personal experience that you can do everything taught in each of those BSE courses, plus other courses, in `R`.
 
 There is a LOT more; this is just a brief intro.
+
+Now let's dive into some research questions we can answer with these various multivariable models.
 
 ## Multiple Linear Regression
 
@@ -428,7 +475,7 @@ Pretty easy!
 
 See [this tidyverse help page](https://ggplot2.tidyverse.org/reference/mpg.html "Fuel economy dataset description") for information about the meaning of the variable names.
 
-Now store it as an object (not actually necessary).
+Now store it as an object (not necessary, just something I do out of preference).
 
 ```{r}
 mpg_tbl <- mpg
@@ -493,11 +540,11 @@ fit_lm %>% tidied_model_lm() %>%
 
 Are nodule presence and nature, as well as prostate specific antigen (PSA) concentration, associated with capsule penetration of a prostate tumor?
 
-A logistic regression model would be virtually the same, syntax-wise, except we use `glm()` instead of `lm()`.
+A logistic regression model is virtually the same, syntax-wise, as our linear model above, except we use `glm()` instead of `lm()`.
 
 First, prepare the data to be properly analyzed. We'll want to make capsule (the variable for capsule penetration yes/no, i.e., 1/0) a factor with the reference group set to the 0 (no penetration).
 
-We'll leave nodule nature as a numeric (i.e., an ordinal variable, with possibilities 1, 2, 3, and 4, representing no nodule, unilobar left, unilobar right, and bilobar, respectively).
+We'll leave nodule nature as a numeric (i.e., a continuous/ordinal variable, with possibilities 1, 2, 3, and 4, representing no nodule, unilobar left, unilobar right, and bilobar, respectively).
 
 ```{r}
 prostate_tbl <- read_csv("00_data/Prostate_Frequency_Class.csv")
@@ -516,7 +563,7 @@ Now fit the model. The only new thing is that you specify a link function---in t
 ```{r}
 fit_glm <- glm(
   capsule ~ dpros + psa,
-  data = prostate_tbl,
+  data   = prostate_tbl,
   family = binomial
 )
 ```
@@ -529,7 +576,7 @@ First the table of the results:
 fit_glm %>% tbl_regression(exponentiate = T)
 ```
 
-Then a dot whisker figure:
+Then a dot-whisker plot:
 
 ```{r}
 fit_glm %>% tidied_model_glm() %>% 
@@ -546,7 +593,7 @@ Cool beans.
 
 Question: Is overall survival for ovarian cancer patients associated with age, cancer stage (as a continuous variable), and cancer antigen 125?
 
-The `survival` package is great for this. Other supporting packages include, primarily, `survminer`, such as for plotting data using the function `ggsurvplot`.
+The `survival` package is great for survival analysis. Other supporting packages include, primarily, `survminer`, such as for plotting data using the function `ggsurvplot`.
 
 Load the data:
 
@@ -606,7 +653,7 @@ fit_coxph %>% tidied_model_glm() %>%
 
 Question: Is it lots of fun to fit a one-knot spline model, or just a little bit fun?
 
-Load some longitudinal data about smoking and FEV, courtesy of our *Applied Longitudinal Analysis* textbook.
+Load some longitudinal data about smoking and FEV, courtesy of our *Applied Longitudinal Analysis* textbook website.
 
 ```{r}
 smoking_tbl <- sas7bdat::read.sas7bdat("00_data/smoking.sas7bdat") %>% 
@@ -614,7 +661,7 @@ smoking_tbl <- sas7bdat::read.sas7bdat("00_data/smoking.sas7bdat") %>%
     janitor::clean_names()
 ```
 
-Some response profile analysis data transformation (don't worry about this, hopefully with some time spent trying it out step by step on your own, it will make sense!):
+Some data transformation (don't worry about all this code, hopefully with some time spent trying it out step by step on your own, it will make sense!):
 
 ```{r}
 smoking_tbl %>% 
@@ -666,14 +713,14 @@ fit_F1_true <- gls(
 )
 ```
 
-By the way, you can write $\LaTeX$ directly in RMarkdown! Just enclose in single dollar signs for in-line LaTeX, and double dollar signs (not visible here, but you will see them in the .Rmd file) for LaTeX "chunks":
+By the way, you can write $\LaTeX$ directly in RMarkdown! This is great when someone wants you, or you want, to write the model equation of a model you fit. Just enclose in single dollar signs for in-line LaTeX, and double dollar signs (not visible here, but you will see them in the .Rmd file) for LaTeX "chunks":
 
 $$
 Y_{ij} = \beta_1 + \beta_2Time_{ij} + \beta_3(Time_{ij} - 6)_+ + \beta_4Group_i + \beta_5Time_{ij}*Group_i + \beta_6(Time_{ij} - 6)_+*Group_i + e_{ij}
-$$ Here's the one-knot spline model with estimates coefficients:
+$$ Here's the one-knot spline model with estimated coefficients:
 
 $$
-\hat{Y}_{ij} = 3.55 - 0.043Time_{ij} + 0.013(Time_{ij} - 6)_+ - 0.33Group_i + 0.014Time_{ij}*Group_i - 0.025(Time_{ij} - 6)_+*Group_i
+\hat{Y}_{ij} = 3.6 - 0.04Time_{ij} + 0.01(Time_{ij} - 6)_+ - 0.3Group_i + 0.01Time_{ij}*Group_i - 0.03(Time_{ij} - 6)_+*Group_i
 $$
 
 Pretty cool 😎.
@@ -682,11 +729,11 @@ Pretty cool 😎.
 
 To check out my HIV model (and a generic SEIR) model, visit my Shiny app [here](https://jcutler79.shinyapps.io/infectious_disease_model/ "Shiny is pretty darn cool.").
 
-`Shiny` is the the way to easily make web apps just by writing `R` code! It opens up a whole new world for communicating your results to stakeholders. It allows them to interact with machine learning-based predictive models you would like to deploy, for example.
+`Shiny` is the the way to easily make web apps just by writing `R` code! It opens up a whole new world for communicating your results to stakeholders. It allows them to interact with machine learning-based predictive models you would like to deploy, for example. You can get some practice publishing full stack web apps using shinyapps.io and the Lynda Learning tutorial on making interactive presenations linked below.
 
 ## Multivariate Analysis - Machine Learning
 
-I can't begin to tell you how fun and exciting machine learning is in `R` with `tidymodels`. So I won't try. Instead, I'll simply refer you to Julia Silge's AMAZING YouTube channel on `tidymodels` and machine learning, linked [here](https://www.youtube.com/c/JuliaSilge/videos "Julia Silge YouTube channel").
+I can't begin to tell you how fun and exciting machine learning is in `R` with `tidymodels`. So I won't try in this brief presentation. Instead, I'll simply refer you to Julia Silge's AMAZING YouTube channel on `tidymodels` and machine learning, linked [here](https://www.youtube.com/c/JuliaSilge/videos "Julia Silge YouTube channel").
 
 For now, suffice it to say that if you are not doing machine learning using `tidymodels`, you are *NOT* doing machine learning the right way unless you're living ten years ago!
 
@@ -694,15 +741,17 @@ Machine learning is a BIG topic, with lots of methods, and lots of great tools i
 
 If you want to learn more feel free to reach out to me I'd be happy to help with what I can.
 
-FYI, you can do everything in the BSE multivariate analysis course in R, including the stuff that we did in SAS. And everything you learned to do in that course in R, you can do more easily, painlessly and richly if you use `tidyverse` and `tidymodels` instead of base R.
+FYI, you can do everything in the BSE multivariate analysis course in R, including the few things in that class that they have you do in SAS. And everything you learn to do in that course in R, you can do more easily, painlessly and richly if you use `tidyverse` and `tidymodels` instead of base R.
 
-# Miscellaneous Cool Stuff 
+(Just so you know!)
+
+# Miscellaneous Things You Can Do 
 
 ## Maps
 
 You can make interactive maps in `R` with `leaflet` (like JavaScript's Leaflet maps).
 
-In this map below, we have a list of Oklahoma County high schools scraped from Wikipedia. They have been geocoded in `R`.
+In this map below, we have a list of Oklahoma County high schools scraped from Wikipedia. They have already been geocoded in `R`.
 
 ```{r}
 school_coords_tbl <- read_rds("00_data/OK_county_high_schools_coords.rds")
@@ -723,17 +772,21 @@ school_jitter_tbl %>%
   )
 ```
 
-The code behind all that went into this (not too much code!) is in maps_and_web_scraping.R, also in this GitHub repo.
+The more-in-depth code behind this is in maps_and_web_scraping.R, which is in this GitHub repo.
+
+To learn more about leaflet maps in `R` visit [RStudio's tutorials on the subject](http://rstudio.github.io/leaflet/ "Leaflet for R").
 
 ## Dashboards
 
 See flexdashboard_and_dygraphs.Rmd (and the corresponding html file).
 
-# Miscellaneous
+See also the link below to the gallery of dashboards you can make quickly and painlessly with flexdashboard.
 
-There are SO many things we did not cover here, obviously. `R` is like a never-ending playground; only your research interests are the limit.
+# Miscellaneous Resources
 
-Here are a few random sources for more cool things to explore:
+Of course, there are SO many things we did not cover here. `R` is like a never-ending playground; only your research interests are the limit.
+
+Here are a few random resources for more cool things to explore:
 
 -   A gallery of extensions to `ggplot2` for all kinds of data visualization, [here](https://exts.ggplot2.tidyverse.org/gallery/ "A MUST-see!"). THIS GALLERY IS A MUST-SEE.
 
@@ -741,10 +794,22 @@ Here are a few random sources for more cool things to explore:
 
 -   Don't miss ... [The Big Book of R](https://www.bigbookofr.com/ "The Big Book of R"). It has every single online book about doing cool stuff in `R`!!
 
--   Joey Hadley's intro to the `tidyverse` on Lynda Learning.
+    -   Other links to lists of books on doing all kinds of research in R include [this one](https://www.routledge.com/Chapman--HallCRC-The-R-Series/book-series/CRCTHERSER?gclid=Cj0KCQjww4OMBhCUARIsAILndv76N6rAK-ouwdu6jVyDhWcXFaXeV9gMJy2WcNMG08yxuIcn_lCxelQaAkBbEALw_wcB "Chapman Hall/CRC The R Series"), and [this one](https://www.springer.com/series/6991?detailsPage=titles "Springer Nature Use R! Series").
+
+-   Martin Hadley's "Learning the R Tidyverse" on Lynda Learning. Also see [R for Data Science](https://rpubs.com/ "R for Data Science"), by Hadley Wickham, linked above.
 
 -   Side-by-side sample SAS code and R code for pretty much all the longitudinal data analysis exercises, provided by the authors of our BSE course's textbook, [here](https://content.sph.harvard.edu/fitzmaur/ala2e/ "Applied Longitudinal Analysis").
 
--   And don't forget to check out stackoverflow.com where you will find answers to literally 90% of your questions about how to do anything `R` (as well as most other languages).
+-   And don't forget to check out stackoverflow.com where you will find answers to literally 90% of your questions about how to do anything in `R` (as well as most other languages).
 
--   Lastly, check out my thesis! That way for sure more than two people will have read it. It was all completely 100% done and written and knit to PDF in `R`. See [here](https://www.proquest.com/docview/2446414689?pq-origsite=gscholar&fromopenview=true "James Cutler Master's Thesis").
+-   You can publish html documents made in `RMarkdown` directly to the web for free using [rpubs.com](https://rpubs.com/ "Easy Web Publishing from RStudio").
+
+    -   You can learn how to do this in minutes by checking out Martin Hadley's Lynda Learning course called "Creating Interactive Presentations with Shiny and R", chapter 3 (about RPubs).
+
+-   A wonderful list of how to do interesting things in `R` and cutting edge new data-wrangling and visualization tools by [Matt Dancho](https://github.com/business-science/free_r_tips "Free R Tips Weekly"). A MUST-SEE. Make sure you watch [the video](https://www.youtube.com/watch?v=F7aYV0RPyD0&list=PLo32uKohmrXtCExTRr-e8SxyQK6yT_Xri&ab_channel=BusinessScience "Set up a project on RStudio of someone else's github repo") on how to git pull the code in case you forget how!
+
+-   If you want to browse through `R` packages by topic, visit [CRAN Task Views](https://cran.r-project.org/web/views/ "Lots of topics--and WAY more packages--here!").
+
+-   I will be slowly, eventually adding to GitHub repositories all my code for each of the biostats methods courses I've taken (e.g., Analysis of Frequency Data, Survival Analysis, Multivariate Analysis, and Longitudinal Analysis).
+
+-   Lastly, check out my thesis! That way for sure more than two people will have read it. It was all completely 100% done and written and knit to PDF in `R`. Check it out [here](https://www.proquest.com/docview/2446414689?pq-origsite=gscholar&fromopenview=true "James Cutler Master's Thesis").
