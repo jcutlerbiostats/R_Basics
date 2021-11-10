@@ -76,6 +76,11 @@ horizontal_lollipop <- function(your_tibble,x_var,y_var,my_color="skyblue"){
 }
 
 
+full_tidy <- function(your_model){
+  your_model %>% tidy(exponentiate = T, conf.int = T)
+}
+
+
 tidied_model_glm <- function(model_fit){
   model_fit %>% 
     tidy(exponentiate = T,conf.int = T) %>% 
