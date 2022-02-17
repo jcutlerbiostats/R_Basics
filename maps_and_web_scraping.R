@@ -136,10 +136,17 @@ school_jitter_tbl %>%
 # ROUND 2 ----
 # Scrape Enhance Dental Locations ----
 pacman::p_load(
+  tidyverse,
   rvest,
   googleway,
   leaflet
 )
+
+# You can load this already-scraped data and skip until the end
+# where the map is generated until you get a google maps key.
+# SAVED enhance_coords_tbl ----
+# enhance_coords_tbl %>% write_rds("00_data/Enhance_Dental_locations.rds")
+enhance_coords_tbl <- read_rds("00_data/Enhance_Dental_locations.rds")
 
 "https://www.enhancedds.com/" %>% 
   read_html() %>%
@@ -174,7 +181,7 @@ enhance_tbl %>% filter(str_detect(value,"Quail|Sand"))
 ## Geocode ----
 enhance_tbl %>% pull(value) %>% 
   map(.f = function(X){
-    res <- google_geocode(X,key = "AIzaSyDTjeYzzaqAe9-mg6FJ_djIoE9iwYM5pDY")
+    res <- google_geocode(X,key = "YOUR KEY GOES HERE")
     df <- res$results
     location <- df$geometry$location
     my_tbl <- bind_cols(location,str_glue("{X}"))
@@ -208,7 +215,7 @@ enhance_coords_tbl %>%
   pull(practice) %>% 
   
   map(.f = function(X){
-    res <- google_geocode(X,key = "AIzaSyDTjeYzzaqAe9-mg6FJ_djIoE9iwYM5pDY")
+    res <- google_geocode(X,key = "YOUR KEY GOES HERE")
     df <- res$results
     location <- df$geometry$location
     my_tbl <- bind_cols(location,str_glue("{X}"))
