@@ -132,3 +132,116 @@ school_jitter_tbl %>%
 
 
 
+# . ----
+# ROUND 2 ----
+# Scrape Enhance Dental Locations ----
+pacman::p_load(
+  rvest,
+  googleway,
+  leaflet
+)
+
+"https://www.enhancedds.com/" %>% 
+  read_html() %>%
+  html_nodes("body") %>% 
+  html_text() %>% 
+  as.character() %>% 
+  str_remove_all("\\\t|\\\n") %>% 
+  str_extract("(?<=Enhance Dental Practices).*") %>% 
+  str_split("OK|UT") %>% 
+  unlist() %>%
+  as_tibble() %>% 
+  mutate(value = str_squish(value)) -> enhance_tbl
+
+enhance_tbl %>% slice(1:30) -> enhance_tbl
+
+
+## Prep (with fake clairvoyance) ----
+enhance_tbl %>% 
+  mutate(
+    value = str_replace_all(value,"([a-z])([A-Z])","\\1 \\2"),
+    value = str_remove(value,"\\,$")
+  ) %>% 
+  mutate(value = case_when(
+    str_detect(value,"Sand") ~ "Sand Springs OK",
+    str_detect(value,"Quail Springs") ~ "Quail Springs OKC",
+    TRUE ~ value
+  )) -> enhance_tbl #%>% filter(str_detect(value,"Sand"))
+
+enhance_tbl %>% filter(str_detect(value,"Quail|Sand"))
+
+
+## Geocode ----
+enhance_tbl %>% pull(value) %>% 
+  map(.f = function(X){
+    res <- google_geocode(X,key = "AIzaSyDTjeYzzaqAe9-mg6FJ_djIoE9iwYM5pDY")
+    df <- res$results
+    location <- df$geometry$location
+    my_tbl <- bind_cols(location,str_glue("{X}"))
+    return(my_tbl)
+  }) %>% bind_rows() %>% as_tibble() -> enhance_coords_tbl
+
+enhance_coords_tbl
+
+### It missed some ... ----
+enhance_coords_tbl %>% 
+  rename(missed = ...1,practice = ...3) %>% 
+  mutate(practice = case_when(
+    !is.na(missed) ~ missed,
+    TRUE ~ practice
+  )) %>% 
+  select(-missed) -> enhance_coords_tbl
+
+enhance_coords_tbl
+
+enhance_coords_tbl %>% filter(is.na(lat))
+
+### ... so geocode those too ----
+enhance_coords_tbl %>% 
+  filter(is.na(lat)) %>% 
+  filter(!str_detect(practice,"Centers")) %>% 
+  
+  mutate(
+    practice = str_extract(practice,"\\w+$"),
+    practice = str_c(practice,", OK")
+  ) %>% 
+  pull(practice) %>% 
+  
+  map(.f = function(X){
+    res <- google_geocode(X,key = "AIzaSyDTjeYzzaqAe9-mg6FJ_djIoE9iwYM5pDY")
+    df <- res$results
+    location <- df$geometry$location
+    my_tbl <- bind_cols(location,str_glue("{X}"))
+    return(my_tbl)
+  }) %>% bind_rows() %>% as_tibble() -> more_coords_tbl
+
+more_coords_tbl %>% rename(practice = ...3) -> more_coords_tbl
+
+enhance_coords_tbl %>% bind_rows(more_coords_tbl) -> enhance_coords_tbl
+
+enhance_coords_tbl
+
+
+## html labels ----
+enhance_coords_tbl$labels <- pmap(
+  list(enhance_coords_tbl$practice),
+  function(first){
+    htmltools::HTML(str_glue("{first}"))
+  }
+)
+
+
+## Map ----
+enhance_coords_tbl %>% 
+  leaflet() %>% 
+  addProviderTiles("CartoDB.Voyager") %>% 
+  setView(lng = -97.5,lat = 35.5, zoom = 8) %>% 
+  addCircleMarkers(
+    label = ~labels,
+    lat = ~lat,
+    lng = ~lng,
+    radius = 7
+  )
+
+
+
